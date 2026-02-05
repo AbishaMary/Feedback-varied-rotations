@@ -75,3 +75,28 @@ def crh_binning(crh, hadley_extent):
     binned_data_combined = xr.concat(binned_data_list, dim='rotation')
 
     return binned_data_combined
+
+
+
+def zonal_time_mean(data):
+    """Compute the zonal time average"""
+    return data.mean(dim=['lon','time'])
+
+
+def pdf(data, iterate_dim: str = 'rotation'):
+    import numpy as np
+    import xarray as xr
+    from scipy.stats import norm
+
+    pdf = []
+    for dim_val in data[iterate_dim]: 
+
+        dim_data = data.sel({iterate_dim: dim_val})
+        mu, sigma = norm.fit(dim_data)
+        crh = np.linspace(0.01, 1, 99)
+        pdf.append(norm.pdf(crh, mu, sigma))
+
+    pdf_da = xr.DataArray(pdf, dims=[iterate_dim, 'crh'], 
+                          coords={iterate_dim: data.coords[iterate_dim], 'crh': crh})
+        
+    return pdf_da
