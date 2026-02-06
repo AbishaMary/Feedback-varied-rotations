@@ -5,16 +5,6 @@ import numpy as np
 #from metpy.units import units
 import pandas as pd
 
-import sys
-# define the path where my modules are saved
-module_path = 'home/m/m300909/clear sky feedback/'
-# add this path tho the system path using the `sys` module
-if not module_path in sys.path: sys.path.append(module_path)
-# load them as they were regular python packages.
-# (the file is called home/m/m300909/py_data_handling.py)
-import basic_func as bf
-import inversion_func as ivf
-import cir_func as cf
 
 
 

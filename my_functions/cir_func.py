@@ -4,14 +4,7 @@ import xarray as xr
 from typing import List, Union
 import numpy as np
 
-import sys
-# define the path where my modules are saved
-module_path = 'home/m/m300909/clear sky feedback/'
-# add this path tho the system path using the `sys` module
-if not module_path in sys.path: sys.path.append(module_path)
-# load them as they were regular python packages.
-# (the file is called home/m/m300909/py_data_handling.py)
-import basic_func as bf
+
 
 def hadley_cell_extent(mastrfu: xr.DataArray, P_t: float, P_b: float, iterate_dim: str = 'rotation') -> List[float]:
     """
