@@ -46,7 +46,7 @@ def dew_point(ts, rh):
     - Dew point temperature in degrees Celsius.
     """
 
-    return dewpoint_from_relative_humidity(ts * units.kelvin, rh * units.percent)
+    return dewpoint_from_relative_humidity(ts * units.kelvin, rh * units.percent) * units.kelvin
 
 
 
@@ -63,8 +63,8 @@ def lcl(ts, ps, rh):
     - Tuple containing LCL pressure in hPa and LCL temperature in degrees Celsius.
     """
     rh = rh * 100
-    dew_T = dew_point(ts, rh)
-    lcl_p, lcl_T = calculate_lcl(ps * units.hPa, ts * units.kelvin, dew_T)
+    dew_T = dew_point(ts, rh) 
+    lcl_p, lcl_T = calculate_lcl(ps * units.hPa, ts * units.kelvin, dew_T * units.kelvin)
     return lcl_p, lcl_T
 
 
@@ -173,12 +173,13 @@ def estimated_inversion_strength(
     return eis
 
 
-def pressure_to_height(ts, ps, plev):
+def pressure_to_height(T, q, ps, plev):
     """
     Calculate the height (z) from pressure levels using the barometric formula.
 
     Parameters:
-    - ts: Surface temperature in Kelvin.
+    - T: Temperature in Kelvin.
+    - q: Specific humidity (dimensionless, e.g., kg/kg).
     - ps: Surface pressure in Pascals.
     - plev: Pressure level in Pascals.
 
@@ -189,8 +190,9 @@ def pressure_to_height(ts, ps, plev):
     Rd = 287.0  # Specific gas constant for dry air, J/(kg·K)
     g = 9.81    # Acceleration due to gravity, m/s²
 
-    # Calculate height
-    z = (Rd * ts / g) * np.log(ps / plev)
+    T_mean = calculate_virtual_temperature(T, q).sel(plev=slice(ps,plev)
+                                                     ).mean(dim='plev')
+    z = (Rd * T_mean / g) * np.log(ps / plev)
     return z
 
 
