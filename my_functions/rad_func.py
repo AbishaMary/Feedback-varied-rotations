@@ -6,6 +6,33 @@ import numpy as np
 import pandas as pd
 
 
+def total_cloud_cover(cc, low_plev, high_plev):
+    
+
+    zxsec = 1 - (1e-12)
+    zxsec = xr.DataArray(zxsec, coords = [cc.rotation, cc.time, cc.lat, cc.lon])
+    
+    total_cloud_cover = 1 - cc[:,:,-1]
+    
+    low_plev = np.where(cc.plev == low_plev)[0][0]
+    high_plev = np.where(cc.plev == high_plev)[0][0]
+
+    for j in range(low_plev,high_plev,-1):
+    
+        max_cc_level = xr.concat([cc[:,:,j],cc[:,:,j-1]], 
+                                 pd.Index(np.arange(0,2), name='sublev'))
+        min_cc_level = xr.concat([cc[:,:,j-1], zxsec], 
+                                 pd.Index(np.arange(0,2), name='sublev'))
+    
+        total_cloud_cover = total_cloud_cover * (( 1 - max_cc_level.max(dim=['sublev'])) 
+                                             / ( 1 - min_cc_level.min(dim = ['sublev'])))
+    
+    total_cloud_cover = 1 - total_cloud_cover 
+    
+    
+    
+    return total_cloud_cover
+
 
 
 def column_relative_humidity(q, T, plev_slice):
