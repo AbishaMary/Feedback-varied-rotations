@@ -6,9 +6,31 @@ from metpy.units import units
 
 
 
-def lower_tropo_stability(tpot, tsurf):
+def lts(temp, tpot= None, plev1=80000, plev2=100000):
+    """
+    Calculate the Lower Tropospheric Stability (LTS) from temperature data.
 
-    return tpot.sel(plev = 70000) - tsurf
+    Parameters:
+    - tpot: True if temp contains the potential temperature data.
+    - temp: xarray DataArray containing the temperature data.
+    - plev1: Pressure level for the upper layer (default is 80000 Pa).
+    - plev2: Pressure level for the lower layer (default is 100000 Pa).
+
+    Returns:
+    - A DataArray representing the LTS.
+    """
+    # Calculate potential temperature at specified pressure levels
+    if tpot is not None:
+        tpot_plev1 = tpot.sel(plev=plev1, method='nearest')
+        tpot_plev2 = tpot.sel(plev=plev2, method='nearest')
+    else:
+        tpot_plev1 = cf.potential_temperature(temp, temp.sel(plev=plev1, method='nearest'))
+        tpot_plev2 = cf.potential_temperature(temp, temp.sel(plev=plev2, method='nearest'))
+
+    # Calculate LTS
+    lts = tpot_plev1 - tpot_plev2
+
+    return lts
 
     
 
@@ -47,9 +69,6 @@ def lcl(ts, ps, rh):
 
 
 def saturation_vapor_pressure(T):
-
-    import xarray as xr
-    import numpy as np
 
     """
     Calculate saturation vapor pressure using the Classius-Clayperon formula.
@@ -101,11 +120,57 @@ def moist_adiabat(T):
 
     # Calculate the moist adiabatic lapse rate
     lapse_rate = (g / cp) * (
-        1 - ((1 + (Lv * qs) / (Rd * T)) /
+        ((1 + (Lv * qs) / (Rd * T)) /
              (1 + (Lv**2 * qs) / (cp * Rv * T**2)))
     )
 
     return lapse_rate
+
+
+def estimated_inversion_strength(
+    theta_level,
+    theta_surface,
+    z_700,
+    z_lcl,
+    T_ref,
+    p_ref=85000.0
+):
+    """
+    Estimated Inversion Strength (EIS) with temperature-dependent
+    moist adiabatic lapse rate.
+
+    Parameters
+    ----------
+    theta_level : float or array-like
+        Potential temperature at the specified pressure level (K)
+    theta_surface : float or array-like
+        Surface potential temperature (K)
+    z_700 : float or array-like
+        Geopotential height of the 700 hPa level (m)
+    z_lcl : float or array-like
+        Lifting Condensation Level height (m)
+    T_ref : float or array-like
+        Air temperature at the reference level used to compute
+        the moist adiabatic lapse rate (K), typically at 850 hPa
+    p_ref : float, optional
+        Pressure of the reference level (Pa). Default is 85000 Pa
+
+    Returns
+    -------
+    eis : float or array-like
+        Estimated Inversion Strength (K)
+    """
+
+    # Lower-tropospheric stability
+    lts = theta_level - theta_surface
+
+    # Moist adiabatic lapse rate evaluated at reference level
+    gamma_m = moist_adiabat(T_ref)
+
+    # Estimated inversion strength
+    eis = lts - gamma_m * (z_700 - z_lcl)
+
+    return eis
 
 
 def pressure_to_height(ts, ps, plev):
