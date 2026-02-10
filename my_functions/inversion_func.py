@@ -25,8 +25,8 @@ def lts(temp, tpot= None, plev1=80000, plev2=100000):
         tpot_plev1 = tpot.sel(plev=plev1, method='nearest')
         tpot_plev2 = tpot.sel(plev=plev2, method='nearest')
     else:
-        tpot_plev1 = cf.potential_temperature(temp, temp.sel(plev=plev1, method='nearest'))
-        tpot_plev2 = cf.potential_temperature(temp, temp.sel(plev=plev2, method='nearest'))
+        tpot_plev1 = bf.potential_temperature(temp, temp.sel(plev=plev1, method='nearest'))
+        tpot_plev2 = bf.potential_temperature(temp, temp.sel(plev=plev2, method='nearest'))
 
     # Calculate LTS
     lts = tpot_plev1 - tpot_plev2
@@ -98,12 +98,13 @@ def inversion_plev_2_ht(T, q, theta, p, pmin=700.0, pmax=950.0):
     theta: potential temperature (K)
     p: pressure levels (hPa), surface → upper troposphere
     """
+        
     mask = (p <= pmax) & (p >= pmin)
     dtheta_dp = theta.where(mask, drop=True).differentiate('plev')
     p_inv = dtheta_dp.idxmin(dim="plev")   
 
-    z_inv = pressure_to_height(T.where(mask, drop=True),
-                                    q.where(mask, drop=True),
+    z_inv = pressure_to_height(T.where(mask, drop=False),
+                                    q.where(mask, drop=False),
                                     pmax, p_inv)
     return z_inv
 
