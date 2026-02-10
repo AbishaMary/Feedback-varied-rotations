@@ -93,7 +93,7 @@ def saturation_vapor_pressure(T):
     return es
 
 
-def inversion_index(T,theta, p, pmin=700.0, pmax=950.0):
+def inversion_plev_2_ht(T, q, theta, p, pmin=700.0, pmax=950.0):
     """
     theta: potential temperature (K)
     p: pressure levels (hPa), surface → upper troposphere
@@ -101,10 +101,6 @@ def inversion_index(T,theta, p, pmin=700.0, pmax=950.0):
     mask = (p <= pmax) & (p >= pmin)
     dtheta_dp = theta.where(mask, drop=True).differentiate('plev')
     p_inv = dtheta_dp.idxmin(dim="plev")   
-    
-    # Constants
-    Rd = 287.0  # Specific gas constant for dry air, J/(kg·K)
-    g = 9.81    # Acceleration due to gravity, m/s²
 
     z_inv = pressure_to_height(T.where(mask, drop=True),
                                     q.where(mask, drop=True),
