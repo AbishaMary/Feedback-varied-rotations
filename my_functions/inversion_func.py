@@ -93,44 +93,58 @@ def saturation_vapor_pressure(T):
     return es
 
 
-def inversion_plev_2_ht(T, q, theta, p, pmin=700.0, pmax=950.0):
+
+def pressure_to_height(T, q, ps, lcl_p, plev):
     """
-    theta: potential temperature (K)
-    p: pressure levels (hPa), surface → upper troposphere
+    Compute LCL height using the hypsometric equation with
+    vertical integration in log-pressure space.
+
+    Parameters
+    ----------
+    T : xarray.DataArray
+        Temperature (K) with dimension 'plev'
+    q : xarray.DataArray
+        Specific humidity (kg/kg)
+    ps : xarray.DataArray
+        Surface pressure (Pa)
+    lcl_p : xarray.DataArray
+        LCL pressure (Pa)
+    plev : xarray.DataArray
+        Pressure levels (Pa)
+
+    Returns
+    -------
+    z : xarray.DataArray
+        Height of LCL above surface (m)
     """
-        
-    mask = (p <= pmax) & (p >= pmin)
-    dtheta_dp = theta.where(mask, drop=True).differentiate('plev')
-    p_inv = dtheta_dp.idxmin(dim="plev")   
 
-    z_inv = pressure_to_height(T.where(mask, drop=False),
-                                    q.where(mask, drop=False),
-                                    pmax, p_inv)
-    return z_inv
+    Rd = 287.0
+    g = 9.81
+
+    # Virtual temperature
+    Tv = T * (1 + 0.61 * q)
+
+    # Broadcast pressure levels to match T dimensions
+    p = plev.broadcast_like(T)
+
+    # Create mask for integration bounds
+    mask = (p <= ps) & (p >= lcl_p)
+
+    # Compute d(ln p)
+    dlnp = np.log(p.shift(plev=-1) / p)
+
+    # Integrand
+    integrand = Tv * dlnp
+
+    # Apply mask
+    integrand = integrand.where(mask)
+
+    # Integrate vertically
+    delta_z = -(Rd / g) * integrand.sum(dim="plev")
+
+    return delta_z
 
 
-
-def pressure_to_height(T, q, ps, plev):
-    """
-    Calculate the height (z) from pressure levels using the barometric formula.
-
-    Parameters:
-    - T: Temperature in Kelvin.
-    - q: Specific humidity (dimensionless, e.g., kg/kg).
-    - ps: Surface pressure in Pascals.
-    - plev: Pressure level in Pascals.
-
-    Returns:
-    - Height (z) in meters.
-    """
-    # Constants
-    Rd = 287.0  # Specific gas constant for dry air, J/(kg·K)
-    g = 9.81    # Acceleration due to gravity, m/s²
-
-    T_mean = calculate_virtual_temperature(T, q).mean(dim='plev')
-    
-    z = (Rd * T_mean / g) * np.log(ps / plev)
-    return z
 
 
 
@@ -181,11 +195,11 @@ def dew_point(ts, rh):
     - Dew point temperature in degrees Celsius.
     """
 
-    return dewpoint_from_relative_humidity(ts * units.kelvin, rh * units.percent) * units.kelvin
+    return dewpoint_from_relative_humidity(ts * units.kelvin, rh * units.percent)
 
 
 
-def lcl(ts, ps, rh):
+def compute_lcl(ts, ps, rh):
     """
     Calculate the Lifted Condensation Level (LCL) given temperature, pressure, and relative humidity.
 
@@ -199,7 +213,7 @@ def lcl(ts, ps, rh):
     """
     rh = rh * 100
     dew_T = dew_point(ts, rh) 
-    lcl_p, lcl_T = calculate_lcl(ps * units.hPa, ts * units.kelvin, dew_T * units.kelvin)
+    lcl_p, lcl_T = calculate_lcl(ps * units.hPa, ts * units.kelvin, dew_T)
     
     lcl_p = array_to_xarray(lcl_p, dims=("rotation","lat", "lon"), 
                             coords={"rotation":ts.rotation,
@@ -215,7 +229,7 @@ def lcl(ts, ps, rh):
                                     "lat":ts.lat,
                                     "lon":ts.lon},
                             name="LCL temperature",
-                            units="Pa",
+                            units="Kelvin",
                             long_name="LCL temperature"
                             )
     return lcl_p, lcl_T
@@ -276,6 +290,45 @@ def array_to_xarray(array, dims, coords=None, name="variable", units=None, long_
     )
 
     return da
+
+
+def pressure_to_height_2(T, q, ps, plev):
+    """
+    Calculate the height (z) from pressure levels using the barometric formula.
+
+    Parameters:
+    - T: Temperature in Kelvin.
+    - q: Specific humidity (dimensionless, e.g., kg/kg).
+    - ps: Surface pressure in Pascals.
+    - plev: Pressure level in Pascals.
+
+    Returns:
+    - Height (z) in meters.
+    """
+    # Constants
+    Rd = 287.0  # Specific gas constant for dry air, J/(kg·K)
+    g = 9.81    # Acceleration due to gravity, m/s²
+
+    T_mean = calculate_virtual_temperature(T, q).mean(dim='plev')
+    
+    z = (Rd * T_mean / g) * np.log(ps / plev)
+    return z
+
+
+def inversion_plev_2_ht(T, q, theta, p, pmin=700.0, pmax=950.0):
+    """
+    theta: potential temperature (K)
+    p: pressure levels (hPa), surface → upper troposphere
+    """
+        
+    mask = (p <= pmax) & (p >= pmin)
+    dtheta_dp = theta.where(mask, drop=True).differentiate('plev')
+    p_inv = dtheta_dp.idxmin(dim="plev")   
+
+    z_inv = pressure_to_height(T.where(mask, drop=False),
+                                    q.where(mask, drop=False),
+                                    pmax, p_inv)
+    return z_inv
 
 
     
