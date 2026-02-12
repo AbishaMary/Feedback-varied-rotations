@@ -200,6 +200,83 @@ def lcl(ts, ps, rh):
     rh = rh * 100
     dew_T = dew_point(ts, rh) 
     lcl_p, lcl_T = calculate_lcl(ps * units.hPa, ts * units.kelvin, dew_T * units.kelvin)
+    
+    lcl_p = array_to_xarray(lcl_p, dims=("rotation","lat", "lon"), 
+                            coords={"rotation":ts.rotation,
+                                    "lat":ts.lat,
+                                    "lon":ts.lon},
+                            name="LCL pressure",
+                            units="Pa",
+                            long_name="LCL pressure"
+                            )
+    
+    lcl_T = array_to_xarray(lcl_T, dims=("rotation","lat", "lon"), 
+                            coords={"rotation":ts.rotation,
+                                    "lat":ts.lat,
+                                    "lon":ts.lon},
+                            name="LCL temperature",
+                            units="Pa",
+                            long_name="LCL temperature"
+                            )
     return lcl_p, lcl_T
+
+
+
+def array_to_xarray(array, dims, coords=None, name="variable", units=None, long_name=None):
+    """
+    Convert a NumPy array to an xarray DataArray with specified dimensions and coordinates.
+
+    This function is fully generic and works for arrays of any shape. It allows you to
+    provide dimension names, coordinate arrays, and optional metadata such as variable
+    name, units, and a descriptive long_name.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        The input NumPy array to convert. Can be 1D, 2D, or 3D (or higher).
+    dims : tuple of str
+        Names of the dimensions corresponding to the axes of `array`.
+        Length must match `array.ndim`.
+    coords : dict of str: array_like, optional
+        Dictionary mapping dimension names to coordinate arrays. Keys should match names in `dims`.
+        Default is None.
+    name : str, optional
+        Name of the DataArray variable. Default is 'variable'.
+    units : str, optional
+        Units string for the variable. Default is None.
+    long_name : str, optional
+        Descriptive long name for the variable. Default is None.
+
+    Returns
+    -------
+    xr.DataArray
+        An xarray DataArray with the specified dimensions, coordinates, and metadata.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> lat = np.linspace(-90, 90, 10)
+    >>> lon = np.linspace(0, 360, 20, endpoint=False)
+    >>> data = np.random.rand(10, 20)
+    >>> da = array_to_xarray(data, dims=("lat", "lon"), coords={"lat": lat, "lon": lon},
+    ...                       name="temperature", units="K", long_name="Surface Temperature")
+    >>> print(da)
+    """
+    # Ensure dimension names match array shape
+    if len(dims) != array.ndim:
+        raise ValueError(f"Length of dims {dims} must match array.ndim {array.ndim}")
+
+    # Create DataArray with optional coords and metadata
+    da = xr.DataArray(
+        array,
+        dims=dims,
+        coords=coords,
+        name=name,
+        attrs={k: v for k, v in {"units": units, "long_name": long_name}.items() if v is not None}
+    )
+
+    return da
+
+
     
         
