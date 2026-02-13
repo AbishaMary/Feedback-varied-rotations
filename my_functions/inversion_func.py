@@ -232,7 +232,11 @@ def compute_lcl(ts, ps, rh):
                             units="Kelvin",
                             long_name="LCL temperature"
                             )
-    return lcl_p, lcl_T
+    
+    lcl_p = lcl_p.metpy.dequantify()
+    lcl_T = lcl_T.metpy.dequantify()
+    
+    return lcl_p
 
 
 
