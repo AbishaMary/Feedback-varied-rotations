@@ -7,6 +7,68 @@ from metpy.units import units
 from . import basic_func as bf
 
 
+def ectei(st, q, rh, aps, tpot=None, pmin=70000, pmax=100000):
+    """
+    Calculate the Equivalent Cloud-Top Entrainment Instability (ECTEI) from temperature data.
+
+    Parameters:
+    - temp: xarray DataArray containing the temperature data.
+    - tpot: True if temp contains the potential temperature data.
+    - plev1: Pressure level for the surface (default is 0 Pa).
+    - plev2: Pressure level for the upper layer (default is 100000 Pa).
+
+    Returns:
+    - A DataArray representing the ECETI.
+    """
+    
+    k = 0.23  # Entrainment efficiency factor (empirical constant)
+    L = 2.5e6  # Latent heat of vaporization (J/kg)
+    cp = 1004  # Specific heat capacity of air at constant pressure (J/kg*K)
+
+    inv = eis(st, q, rh, aps, tpot= tpot, pmin=pmin, pmax=pmax)
+    
+    ectei = inv - (k * L / cp) * (q.sel(plev=pmax) - q.sel(plev=pmin, method='nearest'))
+
+    return ectei
+
+
+
+
+def eis(st, q, rh, aps, tpot=None, pmin=70000, pmax=100000):
+    """
+    Calculate the Estimated Inversion Strength (EIS) from temperature data.
+
+    Parameters:
+    - temp: xarray DataArray containing the temperature data.
+    - tpot: True if temp contains the potential temperature data.
+    - plev1: Pressure level for the surface (default is 0 Pa).
+    - plev2: Pressure level for the upper layer (default is 100000 Pa).
+
+    Returns:
+    - A DataArray representing the EIS.
+    """
+    # Calculate LTS
+    lts_pmin = lts(temp=st, tpot=tpot, plev1=pmin, plev2=pmax)
+    #print(lts_pmin)
+
+    # Calculate EIS using the formula EIS = LTS - Γ_m * (z_700 - z_inv)
+    gamma_m = moist_adiabat(st)  # Moist adiabatic lapse rate in K/mm
+    pp = (pmin+pmax)/2  # Pressure in between pmin and pmax
+    gamma_m = gamma_m.sel(plev=pp, method='nearest')  # Select the value at the desired pressure level
+
+    z_pmin = pressure_to_height(st,q, aps, pmin, st.plev)
+    
+    lcl_p = compute_lcl(st.sel(plev=pmax), pmax, rh.sel(plev=pmax))
+    z_lcl = pressure_to_height(st, q, aps, lcl_p, st.plev)
+
+    eis = lts_pmin - gamma_m * (z_pmin - z_lcl)
+
+    return eis
+
+
+
+
+
 def lts(temp, tpot= None, plev1=80000, plev2=100000):
     """
     Calculate the Lower Tropospheric Stability (LTS) from temperature data.
